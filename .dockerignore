@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/.vs
+**/TestResults
+.git
+.github
+tests
+e2e
+generated
+*.zip
+*.log
+.env

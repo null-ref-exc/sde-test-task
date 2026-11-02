@@ -1,0 +1,16 @@
+services:
+  api:
+    image: vulnerability-tracker:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:5080:8080"
+    volumes:
+      - type: bind
+        source: ./appsettings.Container.json
+        target: /app/appsettings.Production.json
+        read_only: true
+        bind:
+          create_host_path: false
+    stop_grace_period: 30s

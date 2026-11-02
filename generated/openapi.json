@@ -1,0 +1,817 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "VulnerabilityTracker.Api | v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/scans": {
+      "post": {
+        "tags": [
+          "Scans"
+        ],
+        "summary": "Поставить задачу сканирования в очередь",
+        "description": "Каждый принятый запрос создаёт отдельную задачу с GUID v7. При заполнении очереди задача не сохраняется. Сканер не обращается к URL: выбирает существующие уязвимости трекера и генерирует вымышленные файлы и диапазоны строк. При пустом трекере результат будет пустым.",
+        "operationId": "CreateScan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScanRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScanRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScanRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "500": {
+            "description": "Внутренняя ошибка. Подробности доступны в серверных логах по traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Задача сохранена и поставлена в очередь. Заголовок Location содержит адрес получения статуса.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartScanResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartScanResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartScanResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидное тело запроса или URL. Ошибка возвращается как ProblemDetails с traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Очередь заполнена, задача не создана. Retry-After: 5 рекомендует повторить запрос через 5 секунд.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scans/{id}": {
+      "get": {
+        "tags": [
+          "Scans"
+        ],
+        "summary": "Получить статус и результат задачи",
+        "description": "Статусы: Queued, Running, Completed, Failed, Cancelled. Результат присутствует только у Completed, Error — только у Failed. Пустой список находок отличается от отсутствующего результата. Опрос не блокирует переходы состояния задачи.",
+        "operationId": "GetScan",
+        "parameters": [
+          {
+            "name": "Id",
+            "in": "path",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "500": {
+            "description": "Внутренняя ошибка или некорректное сохранённое состояние; подробности в логах по traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Статус задачи и результат, если сканирование завершено.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Задача с указанным ID отсутствует.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scans/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Scans"
+        ],
+        "summary": "Отменить задачу сканирования",
+        "description": "Для Queued и Running возвращает success=true и сохраняет Cancelled. Повторная отмена или отмена Completed/Failed/Cancelled возвращает success=false с HTTP 200. Отмена работающего сканера кооперативная; при гонке с завершением сохраняется первый конечный переход. Отменённый элемент занимает очередь до извлечения работником.",
+        "operationId": "CancelScan",
+        "parameters": [
+          {
+            "name": "Id",
+            "in": "path",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "500": {
+            "description": "Внутренняя ошибка; подробности в логах по traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Результат отмены: success, requestedAt, updatedAt, id и status. success=false для терминальной задачи.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Задача с указанным ID отсутствует.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities": {
+      "post": {
+        "tags": [
+          "Vulnerabilities"
+        ],
+        "summary": "Добавить уязвимость в трекер",
+        "description": "Название обрезается по краям и должно содержать 1–200 символов. Severity обязателен и задаётся строкой Low, Medium, High или Critical; числовые значения запрещены. Повторные запросы создают разные записи. ID GUID v7 и время создания назначает сервер.",
+        "operationId": "CreateVulnerability",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVulnerabilityRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVulnerabilityRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVulnerabilityRequestDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "500": {
+            "description": "Внутренняя ошибка; подробности в логах по traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Уязвимость создана. Заголовок Location содержит адрес получения записи.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Невалидные название, критичность или JSON; ProblemDetails содержит traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/vulnerabilities/{id}": {
+      "get": {
+        "tags": [
+          "Vulnerabilities"
+        ],
+        "summary": "Получить уязвимость по ID",
+        "description": "Возвращает ранее добавленную уязвимость. Если запись отсутствует, возвращает ProblemDetails с HTTP 404.",
+        "operationId": "GetVulnerability",
+        "parameters": [
+          {
+            "name": "Id",
+            "in": "path",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "500": {
+            "description": "Внутренняя ошибка; подробности в логах по traceId.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Полная информация об уязвимости.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityResponseDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VulnerabilityResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Уязвимость с указанным ID отсутствует.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CancellationResponseDto": {
+        "required": [
+          "id",
+          "success",
+          "requestedAt",
+          "updatedAt",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "format": "uuid"
+          },
+          "success": {
+            "type": "boolean",
+            "description": "true, если этот запрос перевёл задачу в Cancelled; false для уже завершённой или отменённой задачи."
+          },
+          "requestedAt": {
+            "type": "string",
+            "description": "Время обработки запроса отмены на сервере.",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Время последнего изменения состояния задачи.",
+            "format": "date-time"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScanStatus"
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "CreateScanRequestDto": {
+        "required": [
+          "repositoryUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "repositoryUrl": {
+            "type": "string",
+            "description": "Абсолютный HTTP(S) URL длиной до 2048 символов. Существование адреса не проверяется.",
+            "nullable": true
+          }
+        },
+        "description": "Входной контракт HTTP API."
+      },
+      "CreateVulnerabilityRequestDto": {
+        "required": [
+          "title",
+          "severity"
+        ],
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Название уязвимости, 1–200 символов после удаления пробелов по краям.",
+            "nullable": true
+          },
+          "severity": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/VulnerabilitySeverity"
+              }
+            ]
+          }
+        },
+        "description": "Входной контракт HTTP API."
+      },
+      "LineRangeResponseDto": {
+        "required": [
+          "start",
+          "end"
+        ],
+        "type": "object",
+        "properties": {
+          "start": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Начальная строка включительно, целое число не меньше 1.",
+            "format": "int32"
+          },
+          "end": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Конечная строка включительно, не меньше Start.",
+            "format": "int32"
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "LocationResponseDto": {
+        "required": [
+          "file",
+          "lineRanges"
+        ],
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Синтетическое имя файла со случайным расширением. Не является ссылкой на реальный файл."
+          },
+          "lineRanges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineRangeResponseDto"
+            },
+            "description": "Диапазоны строк файла, обе границы включены; порядок сохраняется."
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              }
+            ],
+            "format": "int32",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "instance": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ScanResponseDto": {
+        "required": [
+          "id",
+          "repositoryUrl",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "result",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "format": "uuid"
+          },
+          "repositoryUrl": {
+            "type": "string",
+            "description": "Абсолютный HTTP(S) URL длиной до 2048 символов. Существование адреса не проверяется."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScanStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Время создания, назначенное сервером, в формате ISO 8601 с часовым смещением.",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Время последнего изменения состояния задачи.",
+            "format": "date-time"
+          },
+          "result": {
+            "oneOf": [
+              {
+                "enum": [
+                  null
+                ],
+                "nullable": true
+              },
+              {
+                "$ref": "#/components/schemas/ScanResultResponseDto"
+              }
+            ]
+          },
+          "error": {
+            "type": "string",
+            "description": "Описание сбоя сканирования; null, если статус не Failed. Внутренние исключения не раскрываются.",
+            "nullable": true
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "ScanResultResponseDto": {
+        "required": [
+          "findings"
+        ],
+        "type": "object",
+        "properties": {
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VulnerabilityFindingResponseDto"
+            },
+            "description": "Находки для существующих уязвимостей трекера. Может быть пустым списком."
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "ScanStatus": {
+        "enum": [
+          "Queued",
+          "Running",
+          "Completed",
+          "Failed",
+          "Cancelled"
+        ]
+      },
+      "StartScanResponseDto": {
+        "required": [
+          "id",
+          "repositoryUrl",
+          "status",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "format": "uuid"
+          },
+          "repositoryUrl": {
+            "type": "string",
+            "description": "Абсолютный HTTP(S) URL длиной до 2048 символов. Существование адреса не проверяется."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ScanStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Время создания, назначенное сервером, в формате ISO 8601 с часовым смещением.",
+            "format": "date-time"
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "VulnerabilityFindingResponseDto": {
+        "required": [
+          "vulnerability",
+          "locations"
+        ],
+        "type": "object",
+        "properties": {
+          "vulnerability": {
+            "$ref": "#/components/schemas/VulnerabilityResponseDto"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationResponseDto"
+            },
+            "description": "Вымышленные места обнаружения уязвимости; порядок сохраняется."
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "VulnerabilityResponseDto": {
+        "required": [
+          "id",
+          "title",
+          "severity",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Идентификатор ресурса. Для создаваемых сервером сущностей используется GUID v7.",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "description": "Название уязвимости, 1–200 символов после удаления пробелов по краям."
+          },
+          "severity": {
+            "$ref": "#/components/schemas/VulnerabilitySeverity"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Время создания, назначенное сервером, в формате ISO 8601 с часовым смещением.",
+            "format": "date-time"
+          }
+        },
+        "description": "Выходной контракт HTTP API."
+      },
+      "VulnerabilitySeverity": {
+        "enum": [
+          "Low",
+          "Medium",
+          "High",
+          "Critical"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Scans"
+    },
+    {
+      "name": "Vulnerabilities"
+    }
+  ]
+}
